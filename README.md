@@ -4,6 +4,8 @@ A python script to download the first N(customizable)  live streams in batch and
 
 The main purpose is to acquire a big and high quality dataset for game streaming. You can also have your own idea.
 
+中文：Mixer游戏直播批量多线程下载器。高度自定义+自动视频错误矫正。
+
 ## Features
 
 - Live stream download in Mixer(also possible for other live site if you know some `selenium`).
