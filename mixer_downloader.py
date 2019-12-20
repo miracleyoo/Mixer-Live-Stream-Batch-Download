@@ -22,13 +22,16 @@ import os
 import time
 import subprocess
 import datetime
+import signal
+import sys
 from pathlib2 import Path
+
 
 REFRESH_TIME = 15
 TIMEOUT_FIRST = 5
 TIMEOUT_SCROLL = 3
 
-
+# Timing for a code block using "with"
 class Timer(object):
     def __init__(self, name=None):
         self.name = name
@@ -41,7 +44,7 @@ class Timer(object):
         self.time_elapsed = time.time() - self.t_start
         print("Elapsed Time: %s (s)" % self.time_elapsed)
 
-
+# Print with nice format and exect time stamp
 def log(*snippets, end=None):
     if end is None:
         print(time.strftime("==> [%Y-%m-%d %H:%M:%S]", time.localtime()
@@ -50,13 +53,14 @@ def log(*snippets, end=None):
         print(time.strftime("==> [%Y-%m-%d %H:%M:%S]", time.localtime()) + " " + "".join([str(s) for s in snippets]),
               end=end)
 
-
+# Correct all of the rest videos currently in the "raw" folder
 def correct_rest_videos():
     video_paths = [i for i in list(
         (args.root_path/"raw").iterdir()) if i.is_file() and not i.name.startswith(".")]
     for video_path in video_paths:
         check_video(video_path)
 
+# Check and correct a video in the certain path. 
 def check_video(video_path):
     video_path = Path(video_path)
     processed_video_path = Path(
@@ -74,7 +78,7 @@ def check_video(video_path):
     log("Fixing of video " + video_path.name +
         " is done. Going back to checking..")
 
-
+# Start a recorder process for a certain streamer. After recording, check and correct it.
 def mixer_recorder(streamer_name):
     # start streamlink process
     recorded_filename = args.root_path/"raw" / \
@@ -88,7 +92,8 @@ def mixer_recorder(streamer_name):
     check_video(recorded_filename)
     return args.root_path/"processed"/recorded_filename.name
 
-
+# Use selenium to dynamically analyze the input url page and get the list
+# of streamer name in this page.
 def analyze_mixer_page(url):
     driver = webdriver.Chrome()
     driver.get(url)
@@ -104,10 +109,17 @@ def analyze_mixer_page(url):
     streamer_names = [i.find_element_by_tag_name(
         "a").get_attribute("href").split("/")[-1] for i in elems]
     driver.close()
+    log(str(len(streamer_names))," names extracted!")
     return streamer_names
 
+# Actions when detect a exit signal like `Ctrl+C`
+def signal_handler(sig, frame):
+    correct_rest_videos()
+    log('Program exit successfully and video recorded corrected!\nThank for using!')
+    sys.exit(0)
 
 def main(url):
+    signal.signal(signal.SIGINT, signal_handler)
     correct_rest_videos()
     streamer_names = analyze_mixer_page(url)
     p = multiprocessing.Pool()
@@ -133,6 +145,12 @@ if __name__ == "__main__":
         help='The root path of recorded videos.')
 
     parser.add_argument(
+        '--class_name',
+        type=str,
+        default="default",
+        help='The genre or type of stream videos in this input url.')
+
+    parser.add_argument(
         '--quality',
         type=str,
         default="best",
@@ -152,7 +170,7 @@ if __name__ == "__main__":
         help='The number of pages you scrolls down.')
 
     args = parser.parse_args()
-    args.root_path = Path(args.root_path)
+    args.root_path = Path(args.root_path)/args.class_name
 
     if not args.root_path.exists():
         os.makedirs(str(args.root_path))
