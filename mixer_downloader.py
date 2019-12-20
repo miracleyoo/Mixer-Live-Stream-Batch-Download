@@ -81,6 +81,7 @@ def check_video(video_path):
 # Start a recorder process for a certain streamer. After recording, check and correct it.
 def mixer_recorder(streamer_name):
     # start streamlink process
+    log("Start recording for ", streamer_name)
     recorded_filename = args.root_path/"raw" / \
         (streamer_name+"_"+datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+".mp4")
     with Timer(recorded_filename.name+" download"):
@@ -114,6 +115,9 @@ def analyze_mixer_page(url):
 
 # Actions when detect a exit signal like `Ctrl+C`
 def signal_handler(sig, frame):
+    global p
+    p.terminate()
+    p.join()
     correct_rest_videos()
     log('Program exit successfully and video recorded corrected!\nThank for using!')
     sys.exit(0)
@@ -122,7 +126,6 @@ def main(url):
     signal.signal(signal.SIGINT, signal_handler)
     correct_rest_videos()
     streamer_names = analyze_mixer_page(url)
-    p = multiprocessing.Pool()
     result = p.map(mixer_recorder, streamer_names[:args.max_record_num])
     log(str(len(result)), "Videos has been successfully recorded! Thanks for using.")
 
@@ -179,4 +182,5 @@ if __name__ == "__main__":
     if not (args.root_path/"processed").exists():
         os.makedirs(str((args.root_path/"processed")))
 
+    p = multiprocessing.Pool(processes=args.max_record_num)
     main(args.url)
